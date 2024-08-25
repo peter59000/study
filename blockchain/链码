@@ -1,0 +1,152 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/hyperledger/fabric-chaincode-go/shim"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
+)
+
+
+type SimpleChaincode struct {
+}
+
+// 该函数没有初始化被系统调用一次，本系统无需初始化内容
+func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
+	return shim.Success(nil)
+}
+
+func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
+	function, args := stub.GetFunctionAndParameters()
+	switch function {
+	//创建、更新
+	case "Doc":
+		return t.document(stub, args)
+	case "History":
+		return t.history(stub, args)
+	case "Name":
+		return t.name(stub, args)
+	case "QueryHistory":
+		return t.queryHistory(stub, args)
+	// 查询
+	case "Query":
+		return t.query(stub, args)
+	}
+
+	return shim.Error("Invalid invoke function name. " + function)
+}
+
+// args[0]: name, args[1]: json
+func (t *SimpleChaincode) name(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	err := stub.PutState("name#" + args[0], []byte(args[1]))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	return shim.Success(nil)
+}
+
+
+func (t *SimpleChaincode) document(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	err := stub.PutState("doc#0#" + args[0], []byte(args[1]))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	return shim.Success(nil)
+}
+
+// args[0]: id, args[1]: timestamp args[2]: json
+func (t *SimpleChaincode) history(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	err := stub.PutState("history#0#" + args[0] + "#0#" + args[1], []byte(args[2]))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	return shim.Success(nil)
+}
+
+func (t *SimpleChaincode) queryHistory(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	doctorName := args[0]
+	patientName := args[1]
+	timestamp := args[2]
+
+	err := stub.PutState("queryHistory#0#" + doctorName + "#0#" + timestamp, []byte(args[3]))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	err = stub.PutState("queryHistory#0#" + patientName + "#0#" + timestamp, []byte(args[3]))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	return shim.Success(nil)
+}
+
+// query callback representing the query of a chaincode
+func (t *SimpleChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	queryType := args[0]
+	switch queryType {
+	case "Name":
+		name := args[1]
+		c, _ := stub.GetState("name#" + name)
+		return shim.Success(c)
+	case "Doc":
+		name := args[1]
+		c, _ := stub.GetState("doc#0#" + name)
+		return shim.Success(c)
+	case "History":
+		id := args[1]
+		result, err := stub.GetStateByRange("history#0#" + id + "#0", "history#0#" + id + "#F")
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		var resultRecord []string
+		if result != nil {
+			defer func() {
+				result.Close()
+			}()
+
+			for result.HasNext() {
+				record, err := result.Next()
+				if err != nil {
+					return shim.Error(err.Error())
+				}
+				resultRecord = append(resultRecord, string(record.Value))
+			}
+		}
+		pb, _ := json.Marshal(resultRecord)
+		return shim.Success(pb)
+	case "HistoryByName":
+		name := args[1]
+		result, err := stub.GetStateByRange("queryHistory#0#" + name + "#0", "queryHistory#0#" + name + "#F")
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		var resultRecord []string
+		if result != nil {
+			defer func() {
+				result.Close()
+			}()
+
+			for result.HasNext() {
+				record, err := result.Next()
+				if err != nil {
+					return shim.Error(err.Error())
+				}
+				resultRecord = append(resultRecord, string(record.Value))
+			}
+		}
+		pb, _ := json.Marshal(resultRecord)
+		return shim.Success(pb)
+	}
+	return shim.Success(nil)
+
+}
+
+func main() {
+	err := shim.Start(new(SimpleChaincode))
+	if err != nil {
+		fmt.Printf("Error starting Simple chaincode: %s", err)
+	}
+}

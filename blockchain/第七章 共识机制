@@ -1,0 +1,40 @@
+
+cd hyfa/fabric-samples/first-network/
+
+sudo cp crypto-config.yaml crypto-config_backup.yaml
+
+sudo vim crypto-config.yaml
+
+
+      - Hostname: orderer1
+      - Hostname: orderer2
+      - Hostname: orderer3
+
+
+sudo cp configtx.yaml configtx_backup.yaml
+
+  - orderer.example.com:7050
+        - orderer1.example.com:7050
+        - orderer2.example.com:7050
+        - orderer3.example.com:7050
+        
+        
+         - kafka0:9092
+            - kafka1:9092
+            - kafka2:9092
+            - kafka3:9092
+            
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            yaml文件缩进必须为两个空格，复制粘贴很容易报错
+            
+sudo cp base/docker-compose-base.yaml base/docker-compose-base_backup.yaml
+
+sudo cp docker-compose-cli.yaml docker-compose-cli_backup.yaml
+
+sudo ./byfn.sh down
+
+sudo ./byfn.sh generate
+
+sudo docker-compose -f docker-compose-cli.yaml up
+
+sudo docker ps
